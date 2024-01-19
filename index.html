@@ -76,7 +76,9 @@ canvas { border: 1px solid #222; display: none; }
   <a class="spacing" href="#">Enable Spacing</a>
   <a class="greyscale" href="#">Enable Greyscale</a>
 </div>
-<canvas></canvas>
+
+<div class="main"></div>
+
 <script>
 
 let palettes; //global var to store our palettes
@@ -130,7 +132,7 @@ Object.keys(inputs).forEach(el => {
     // Generate all palettes, from a single RGB or LCH (preferred) color
     palettes = new Palette(newColor, steps, opts);
     // update the page
-    document.querySelectorAll('.palette').forEach(el => el.remove());
+    document.querySelector('.main').innerHTML = '';
     render(palettes);
   });
 });
@@ -1243,7 +1245,7 @@ const drawColors = (name, mode, i) => {
   if (!/^picker|^scale|Scale/.test(name)) el.innerHTML = `<h3>${name}</h3>`;
   // draw colors
   let baseStyles;
-  colors.forEach((c, i) => {
+  colors.forEach((c, q) => {
     const bg = c.css;
     // if showing "wheel" palette, or any scale, do 1px width, no inner borders,
     // cos these palettes are large - have lots of items in them
@@ -1275,15 +1277,17 @@ const drawColors = (name, mode, i) => {
     baseStyles = baseStyles.join(';');
     // now draw the colour(s) to the page
     el.classList.add('palette');
-    el.innerHTML += `<div class="color${logOpts.borders ? " with-borders" : ''}${logOpts.rounded ? "with-rounded" : ''}" style="${baseStyles}"></div>`;
+    // add unique class to the color box
+    const className = `${name.toLowerCase().replace(' ', '-')}--color-${q}`;
+    el.innerHTML += `<div class="color${logOpts.borders ? " with-borders" : ''}${logOpts.rounded ? "with-rounded" : ''} ${className}" style="${baseStyles}"></div>`;
     // If showing a color mix, show as sum, like so: color1 + color2 = color3
     if (/mix|Mix/.test(name)) {
       const sum = symbol => `<span style="position: relative; top: -8px; display: inline-block;">&nbsp${symbol}&nbsp;</span>`;
-      if (i  <  colors.length - 2) el.innerHTML += sum('+');
-      if (i === colors.length - 2) el.innerHTML += sum('=');
+      if (q  <  colors.length - 2) el.innerHTML += sum('+');
+      if (q === colors.length - 2) el.innerHTML += sum('=');
     }
   });
-  document.body.append(el);
+  document.querySelector('.main').append(el);
 }
 
 
@@ -1348,25 +1352,25 @@ function render (palettes) {
   } = palettes.utils;
 
   // utils - mixing colours   (color1, color2, mixAmount)
-  const mixed20 = mix(lchColor, palettes.hueGradient[8], 0.20);
-  const mixed50 = mix(lchColor, palettes.hueGradient[8], 0.50);
-  const mixed80 = mix(lchColor, palettes.hueGradient[8], 0.80);
+  const mixed20 = mix(lchColor, palettes.hueGradient[palettes.hueGradient.length - 2], 0.20);
+  const mixed50 = mix(lchColor, palettes.hueGradient[palettes.hueGradient.length - 2], 0.50);
+  const mixed80 = mix(lchColor, palettes.hueGradient[palettes.hueGradient.length - 2], 0.80);
 
   // show the color mixes as a palette (color1 + color2 = color3)
   palettes['mixedColor (20%)'] = [
     lchColor,                 // first color to mix (use the base color, in LCH format)
-    palettes.hueGradient[8],  // second color to mix
+    palettes.hueGradient[palettes.hueGradient.length - 2],  // second color to mix
     mixed20
   ];
   // show the color mixes
   palettes['mixedColor (50%)'] = [
     lchColor,                 // first color to mix (use the base color, in LCH format)
-    palettes.hueGradient[8],  // second color to mix
+    palettes.hueGradient[palettes.hueGradient.length - 2],  // second color to mix
     mixed50
   ];
   palettes['mixedColor (80%)'] = [
     lchColor,                   // first color to mix (use the base color, in LCH format)
-    palettes.hueGradient[8],    // second color to mix
+    palettes.hueGradient[palettes.hueGradient.length - 2],    // second color to mix
     mixed80
   ];
   palettes.list.push('mixedColor (20%)');
