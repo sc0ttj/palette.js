@@ -3,9 +3,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <style>
 /* style body */
-body { padding: 32px; background-color: #EFEFEF; transition: background-color 0.25s, color 0.25s; max-width: 800px; margin: 0 auto; position: relative; }
+body { font-size: 16px; padding: 32px; background-color: #EFEFEF; transition: background-color 0.25s, color 0.25s; max-width: 960px; margin: 0 auto; position: relative; }
 /* dark mode for whole page */
 body.dark { background-color: #2d2d2d; color: #efefef; }
+/* palette titles */
+h3 { margin-top: 2rem; margin-bottom: 0.8rem; }
+h3:first-letter { text-transform: uppercase; }
 /* style links to work in dark & light mode */
 a { font-weight: bold; color: rgb(0 198 255 / 1); }
 a:visited { color: rgb(0 198 255 / 1); }
@@ -26,12 +29,44 @@ a:visited { color: rgb(0 198 255 / 1); }
 .ui-settings a { display: block; }
 .ui-settings p { margin: 0; }
 .ui-settings .light-switch a { display: inline-block; }
+
+.color-chooser { border: 1px solid transparent; padding: 0.5rem; margin: 1rem 0; border-left: 110px; margin-left: -110px; position: relative; }
+.color-chooser td { padding: 2px; width: 56px; text-align: center; }
+.color-chooser input {
+  max-width: 65px;
+  text-align: center;
+  padding: 8px 4px;
+}
+.color-chooser tr:nth-child(3) td { font-size: 0.75rem; }
+
 /* not used */
 canvas { border: 1px solid #222; display: none; }
 </style>
 <body>
 <h1>Palette.js</h1>
 <div class="ui-settings">
+  <div class="color-chooser">
+    <table>
+      <tr>
+        <td>L</td>
+        <td>C</td>
+        <td>H</td>
+        <td>A</td>
+      </tr>
+      <tr>
+        <td><input class="l" type="number" min="0" max="100" /></td>
+        <td><input class="c" type="number" min="0" max="150" /></td>
+        <td><input class="h" type="number" min="0" max="360" /></td>
+        <td><input class="a" type="number" min="0" max="1" /></td>
+      </tr>
+      <tr>
+        <td>0-100</td>
+        <td>0-150</td>
+        <td>0-360</td>
+        <td>0-1</td>
+      </tr>
+    </table>
+  </div>
   <p>Toggle:</p>
   <div class="light-switch">
     <a class="light" href="">Light</a> / <a class="dark" href="">Dark</a>
@@ -43,6 +78,10 @@ canvas { border: 1px solid #222; display: none; }
 </div>
 <canvas></canvas>
 <script>
+
+let palettes; //global var to store our palettes
+
+
 // toggle light mode
 [ 'dark', 'light' ].forEach(setting => {
   const body = document.querySelector('body');
@@ -66,6 +105,36 @@ canvas { border: 1px solid #222; display: none; }
     return false;
   });
 });
+// allow chosing a new base color
+const inputs = {
+  l: document.querySelector('input.l'),
+  c: document.querySelector('input.c'),
+  h: document.querySelector('input.h'),
+  a: document.querySelector('input.a'),
+};
+Object.keys(inputs).forEach(el => {
+  inputs[el].addEventListener('change', event => {
+    const newColor = {
+      l: Number(inputs.l.value),
+      c: Number(inputs.c.value),
+      h: Number(inputs.h.value),
+      alpha: Number(inputs.a.value),
+      mode: 'lch',
+    };
+    // Set some palette options
+    const steps = 9;
+    const opts = {
+      hueShift: { hueStep:  12,   minLight: 15, maxLight: 100 },
+      pixelArt: { hueStep: -22.5, minLight: 10, maxLight: 95, steps: 10 },
+    };
+    // Generate all palettes, from a single RGB or LCH (preferred) color
+    palettes = new Palette(newColor, steps, opts);
+    // update the page
+    document.querySelectorAll('.palette').forEach(el => el.remove());
+    render(palettes);
+  });
+});
+
 
 // defines a Palette function, which:
 //
@@ -131,7 +200,8 @@ canvas { border: 1px solid #222; display: none; }
 //    - divergent(color1, color2, contrast, middlePoint, steps)
 //    - random(color, amount steps) - see https://randomcolor.lllllllllllllllll.com/
 // - @TODO methods added to each palette:
-//    - myPalette.sort(prop[, 'asc'])    // return palette colors ordered by the given color property (r,g,b,l,c,h,etc), asc or not
+//    - myPalette.spin(deg)              // spin the hue of each color in the palette
+//    - myPalette.sortBy(prop[, 'asc'])  // return palette colors ordered by the given color property (r,g,b,l,c,h,etc), asc or not
 //    - myPalette.transpose()            // flip/invert the palettes rows & cols
 // - @TODO methods added to each color, `amount` is always 0-1 :
 //    - color.fixContrast(color2)     // fixes contrast/distance between two colors to meet WGAC2 accessibility standards
@@ -954,6 +1024,7 @@ function Palette(base, steps = 8, opts = {}) {
 
   // IMPORTANT - always format input color to LCH
   this.baseColor = base;
+
   if (base.mode !== 'lch') this.baseColor = this.convert[`${base.mode}2lch`](base);
   const { l, c, h, alpha, mode } = this.baseColor;
   this.baseColor.css = `lch(${l}% ${c} ${h}deg${(alpha || alpha === 0) ? ' / '+alpha : ''})`
@@ -1139,6 +1210,7 @@ const logOpts = {
   borders: true,
   rounded: false,
   spacing: false,
+  greyscale: false,
 };
 
 const logColors = (name, mode, i) => {
@@ -1215,6 +1287,232 @@ const drawColors = (name, mode, i) => {
 }
 
 
+
+
+// All palettes are returned in the same color mode you passed in:
+//console.log('palettes', palettes);
+
+
+
+function render (palettes) {
+  //
+  //
+  // palette conversion utils
+  //
+  //
+
+  // get some color space conversion functions
+  const {
+    lab2lch,
+    lch2lab,
+    lch2rgb,
+    rgb2cmyk,
+    rgb2gl,
+    rgb2hex,
+    rgb2hsl,
+    rgb2hsv,
+    rgb2hwb,
+    rgb2lab,
+    rgb2lch,
+    rgb2xyz,
+    xyz2lab,
+  } = palettes.convert;
+
+
+  // examples of converting a palette to a different color mode
+  /*
+  console.log('-------------------');
+  console.log('conversions:');
+  console.log('primary (CMYK)', palettes.primary.map(color => rgb2cmyk(lch2rgb(color))));
+  console.log('primary (HEX)',  palettes.primary.map(color => rgb2hex(lch2rgb(color))));
+  console.log('primary (HSL)',  palettes.primary.map(color => rgb2hsl(lch2rgb(color))));
+  console.log('primary (HSV)',  palettes.primary.map(color => rgb2hsv(lch2rgb(color))));
+  console.log('primary (HWB)',  palettes.primary.map(color => rgb2hwb(lch2rgb(color))));
+  console.log('primary (XYZ)',  palettes.primary.map(color => rgb2xyz(lch2rgb(color))));
+  console.log('primary (LAB)',  palettes.primary.map(color => xyz2lab(rgb2xyz(lch2rgb(color)))));
+  console.log('-------------------');
+  */
+
+  //
+  //
+  // other palette utils
+  //
+  //
+
+  const {
+    spin,      // spin(color, degrees)                  spin a colour by given degrees
+    mix,       // mix(color1, color2, 0.5)              mix 2 colors by given amount
+    rescale,   // scale(num, start1,end1, start2,end2)  rescale a number to a new scale
+    sortBy,    // sortBy(palette, key[, 'asc'])         sort a palette by the given key
+    transpose, // transpose(array)                      flip the rows and columns of a 2d array
+  } = palettes.utils;
+
+  // utils - mixing colours   (color1, color2, mixAmount)
+  const mixed20 = mix(lchColor, palettes.hueGradient[8], 0.20);
+  const mixed50 = mix(lchColor, palettes.hueGradient[8], 0.50);
+  const mixed80 = mix(lchColor, palettes.hueGradient[8], 0.80);
+
+  // show the color mixes as a palette (color1 + color2 = color3)
+  palettes['mixedColor (20%)'] = [
+    lchColor,                 // first color to mix (use the base color, in LCH format)
+    palettes.hueGradient[8],  // second color to mix
+    mixed20
+  ];
+  // show the color mixes
+  palettes['mixedColor (50%)'] = [
+    lchColor,                 // first color to mix (use the base color, in LCH format)
+    palettes.hueGradient[8],  // second color to mix
+    mixed50
+  ];
+  palettes['mixedColor (80%)'] = [
+    lchColor,                   // first color to mix (use the base color, in LCH format)
+    palettes.hueGradient[8],    // second color to mix
+    mixed80
+  ];
+  palettes.list.push('mixedColor (20%)');
+  palettes.list.push('mixedColor (50%)');
+  palettes.list.push('mixedColor (80%)');
+
+
+
+  //
+  // lets grab the functions needed to draw our own custom palettes
+  //
+
+/*
+  const {
+      scientific,
+      hueShift,
+      gradient,
+      gradients,
+      hueGradient,
+      randomised,
+      tints,
+      shades,
+      monochromatic,
+      lightAndDark,
+      tonal,
+      toAlpha,
+      // data viz palettes
+      categorical,
+      sequential,
+      divergent,
+  } = palettes.create;
+
+
+  // ...and lets add a bunch of our own palettes to the `palettes` object
+
+  // generate a multi-color gradient palette
+  const colors = [
+    { ...lchColor, h: lchColor.h, l: 70  },
+    { ...lchColor, h: lchColor.h + 240,  l: 45  },
+    { ...lchColor, h: lchColor.h + 90,  l: 75  },
+    { ...lchColor, h: lchColor.h + 320, l: 40  },
+  ];
+
+  palettes[`fourColorScale (60, 20, 20)`] = gradients(colors, [ 60, 20, 20 ]);
+  palettes.list.push(`fourColorScale (60, 20, 20)`);
+
+  palettes[`fourColorScale (20, 60, 20)`] = gradients(colors, [ 20, 60, 20 ]);
+  palettes.list.push(`fourColorScale (20, 60, 20)`);
+
+  palettes[`fourColorScale (20, 20, 60)`] = gradients(colors, [ 20, 20, 60 ]);
+  palettes.list.push(`fourColorScale (20, 20, 60)`);
+
+  palettes[`fourColorScale (33, 33, 33)`] = gradients(colors, [ 33, 33, 33 ]);
+  palettes.list.push(`fourColorScale (33, 33, 33)`);
+
+
+
+
+  // generate a bunch of sequential palettes
+  for (let i = 1; i <= 8; i ++) {
+    const color1 = { ...lchColor, h: lchColor.h + 45*i };
+    palettes[`sequential${i}`] = sequential(color1, 90, steps);
+    palettes.list.push(`sequential${i}`);
+  }
+
+  // generate a bunch of categorical palettes
+  for (let i = 1; i <= 8; i ++) {
+    const color1 = { ...lchColor, h: lchColor.h + 45*i };
+    palettes[`categorical${i}`] = categorical(color1, 50, -90, steps);
+    palettes.list.push(`categorical${i}`);
+  }
+
+  // generate a bunch of "divergent" palettes
+  for (let i = 1; i <= 8; i ++) {
+    const color1 = { ...lchColor, h: lchColor.h + 33*i };
+    const color2 = { ...lchColor, h: (lchColor.h + 180) + 33*i, l: 95.5 };
+    palettes[`divergent${i}`] = divergent(color1, color2, 40, 0.5, steps);
+    palettes.list.push(`divergent${i}`);
+    // generate a bunch of "divergent" scales
+    palettes[`divergentScale${i}`] = divergent(color1, color2, 40, 0.5, 100);
+    palettes.list.push(`divergentScale${i}`);
+  }
+*/
+
+  // Palette converts its output to the same color space as the base color
+  // it received, but we've just added more palettes to it, so lets convert
+  // the new ones as well, so *all* palettes are in the same color mode as
+  // the base color that Palette received.
+  palettes.convertPalettes();
+
+
+  // CSS4 is prob not supported in browsers yet, so:
+  //
+  // If needed, convert the palettes from LCH to RGB so we can display them
+  // on all browsers - even those that don't yet support CSS 4 (which supports
+  // the `lch()` color space).
+
+  if (baseColor.mode === 'lch') {
+    palettes.base = palettes.baseColor;
+    palettes.list.forEach(name => {
+      palettes[name] = palettes[name].map((color, row) => {
+        if (Array.isArray(color)) {
+          return palettes[name][row].map(c => lch2rgb(c));
+        } else {
+          return lch2rgb(color);
+        }
+      });
+    });
+  }
+
+
+  //
+  //
+  // now show the colors
+  //
+  //
+
+
+  palettes.base = [lch2rgb(palettes.baseColor)];
+  // show the base color
+  drawColors('base', 'lch');
+  logColors('base', 'lch');
+
+  // update color chooser UI box
+  document.querySelector('.color-chooser').style.border = `1px solid ${palettes.base[0].css}`;
+  document.querySelector('.color-chooser').style.borderLeft = `110px solid ${palettes.base[0].css}`;
+
+  // draw palettes to page
+  palettes.list.forEach(p => {
+    if (Array.isArray(palettes[p][0])) {
+      // loop over rows, then print the palettes
+      palettes[p].forEach((swatch, i) => { // for each row (palette)
+        const name = `picker ${p}`; // choose a "picker" name
+        palettes[name] = swatch;    // create a tmp palette for drawColors
+        drawColors(name, 'lch', i); // draw it
+        delete palettes[name];      // get rid of it
+      });
+    } else {
+      // print the palettes
+      drawColors(p, 'lch'); // draw to page
+      //logColors(p, 'rgb');  // log in dev tools, will print CSS values
+    }
+  });
+}
+
+
 // ======================================================================== //
 //
 //
@@ -1225,9 +1523,9 @@ const drawColors = (name, mode, i) => {
 // the given mode.
 
 const lchColor = {
-  l: 75,    // 0 to 100
-  c: document.querySelector('body.greyscale') ? 0 : 100,   // 0 to 230
-  h: 30,    // 0 to 360
+  l: 75,    // 0 to 100, or 0% to 100%
+  c: 100,   // 0 to 150, or 0% to 100%, or 'none'
+  h: 30,    // 0 to 360, or 0deg to 360deg
   alpha: 1, // 0 to 1
   mode: "lch"
 };
@@ -1240,6 +1538,12 @@ const rgbColor = {
 };
 const baseColor = lchColor;
 
+// update the UI
+inputs.l.value = Number(lchColor.l);
+inputs.c.value = Number(lchColor.c);
+inputs.h.value = Number(lchColor.h);
+inputs.a.value = Number(lchColor.alpha);
+
 // Set some palette options.
 const steps = 9;
 const opts = {
@@ -1247,280 +1551,12 @@ const opts = {
   pixelArt: { hueStep: -22.5, minLight: 10, maxLight: 95, steps: 10 },
 };
 
+
 // Generate all palettes, from a single RGB or LCH (preferred) color
-const palettes = new Palette(baseColor, steps, opts);
+palettes = new Palette(baseColor, steps, opts);
 
-// All palettes are returned in the same color mode you passed in:
-console.log('palettes', palettes);
-
-
-
-
-//
-//
-// palette conversion utils
-//
-//
-
-// get some color space conversion functions
-const {
-  lab2lch,
-  lch2lab,
-  lch2rgb,
-  rgb2cmyk,
-  rgb2gl,
-  rgb2hex,
-  rgb2hsl,
-  rgb2hsv,
-  rgb2hwb,
-  rgb2lab,
-  rgb2lch,
-  rgb2xyz,
-  xyz2lab,
-} = palettes.convert;
-
-
-// examples of converting a palette to a different color mode
-console.log('-------------------');
-console.log('conversions:');
-console.log('primary (CMYK)', palettes.primary.map(color => rgb2cmyk(lch2rgb(color))));
-console.log('primary (HEX)',  palettes.primary.map(color => rgb2hex(lch2rgb(color))));
-console.log('primary (HSL)',  palettes.primary.map(color => rgb2hsl(lch2rgb(color))));
-console.log('primary (HSV)',  palettes.primary.map(color => rgb2hsv(lch2rgb(color))));
-console.log('primary (HWB)',  palettes.primary.map(color => rgb2hwb(lch2rgb(color))));
-console.log('primary (XYZ)',  palettes.primary.map(color => rgb2xyz(lch2rgb(color))));
-console.log('primary (LAB)',  palettes.primary.map(color => xyz2lab(rgb2xyz(lch2rgb(color)))));
-console.log('-------------------');
-
-
-
-//
-//
-// other palette utils
-//
-//
-
-const {
-  spin,      // spin(color, degrees)                  spin a colour by given degrees
-  mix,       // mix(color1, color2, 0.5)              mix 2 colors by given amount
-  rescale,   // scale(num, start1,end1, start2,end2)  rescale a number to a new scale
-  sortBy,    // sortBy(palette, key[, 'asc'])         sort a palette by the given key
-  transpose, // transpose(array)                      flip the rows and columns of a 2d array
-} = palettes.utils;
-
-// utils - mixing colours   (color1, color2, mixAmount)
-const mixed20 = mix(lchColor, palettes.hueGradient[8], 0.20);
-const mixed50 = mix(lchColor, palettes.hueGradient[8], 0.50);
-const mixed80 = mix(lchColor, palettes.hueGradient[8], 0.80);
-
-// show the color mixes as a palette (color1 + color2 = color3)
-palettes['mixedColor (20%)'] = [
-  lchColor,                 // first color to mix (use the base color, in LCH format)
-  palettes.hueGradient[8],  // second color to mix
-  mixed20
-];
-// show the color mixes
-palettes['mixedColor (50%)'] = [
-  lchColor,                 // first color to mix (use the base color, in LCH format)
-  palettes.hueGradient[8],  // second color to mix
-  mixed50
-];
-palettes['mixedColor (80%)'] = [
-  lchColor,                   // first color to mix (use the base color, in LCH format)
-  palettes.hueGradient[8],    // second color to mix
-  mixed80
-];
-palettes.list.push('mixedColor (20%)');
-palettes.list.push('mixedColor (50%)');
-palettes.list.push('mixedColor (80%)');
-
-
-
-//
-// lets grab the functions needed to draw our own custom palettes
-//
-
-const {
-    scientific,
-    hueShift,
-    gradient,
-    gradients,
-    hueGradient,
-    randomised,
-    tints,
-    shades,
-    monochromatic,
-    lightAndDark,
-    tonal,
-    toAlpha,
-    // data viz palettes
-    categorical,
-    sequential,
-    divergent,
-} = palettes.create;
-
-
-// ...and lets add a bunch of our own palettes to the `palettes` object
-
-// generate a multi-color gradient palette
-const colors = [
-  { ...lchColor, h: lchColor.h, l: 70  },
-  { ...lchColor, h: lchColor.h + 240,  l: 45  },
-  { ...lchColor, h: lchColor.h + 90,  l: 75  },
-  { ...lchColor, h: lchColor.h + 320, l: 40  },
-];
-
-palettes[`fourColorScale (60, 20, 20)`] = gradients(colors, [ 60, 20, 20 ]);
-palettes.list.push(`fourColorScale (60, 20, 20)`);
-
-palettes[`fourColorScale (20, 60, 20)`] = gradients(colors, [ 20, 60, 20 ]);
-palettes.list.push(`fourColorScale (20, 60, 20)`);
-
-palettes[`fourColorScale (20, 20, 60)`] = gradients(colors, [ 20, 20, 60 ]);
-palettes.list.push(`fourColorScale (20, 20, 60)`);
-
-palettes[`fourColorScale (33, 33, 33)`] = gradients(colors, [ 33, 33, 33 ]);
-palettes.list.push(`fourColorScale (33, 33, 33)`);
-
-
-
-
-// generate a bunch of sequential palettes
-for (let i = 1; i <= 8; i ++) {
-  const color1 = { ...lchColor, h: lchColor.h + 45*i };
-  palettes[`sequential${i}`] = sequential(color1, 90, steps);
-  palettes.list.push(`sequential${i}`);
-}
-
-// generate a bunch of categorical palettes
-for (let i = 1; i <= 8; i ++) {
-  const color1 = { ...lchColor, h: lchColor.h + 45*i };
-  palettes[`categorical${i}`] = categorical(color1, 50, -90, steps);
-  palettes.list.push(`categorical${i}`);
-}
-
-// generate a bunch of "divergent" palettes
-for (let i = 1; i <= 8; i ++) {
-  const color1 = { ...lchColor, h: lchColor.h + 33*i };
-  const color2 = { ...lchColor, h: (lchColor.h + 180) + 33*i, l: 95.5 };
-  palettes[`divergent${i}`] = divergent(color1, color2, 40, 0.5, steps);
-  palettes.list.push(`divergent${i}`);
-  // generate a bunch of "divergent" scales
-  palettes[`divergentScale${i}`] = divergent(color1, color2, 40, 0.5, 100);
-  palettes.list.push(`divergentScale${i}`);
-}
-
-// Palette converts its output to the same color space as the base color
-// it received, but we've just added more palettes to it, so lets convert
-// the new ones as well, so *all* palettes are in the same color mode as
-// the base color that Palette received.
-palettes.convertPalettes();
-
-
-// CSS4 is prob not supported in browsers yet, so:
-//
-// If needed, convert the palettes from LCH to RGB so we can display them
-// on all browsers - even those that don't yet support CSS 4 (which supports
-// the `lch()` color space).
-if (baseColor.mode === 'lch') {
-  palettes.base = [lch2rgb(palettes.baseColor)];
-  palettes.list.forEach(name => {
-    palettes[name] = palettes[name].map((color, row) => {
-      if (Array.isArray(color)) {
-        return palettes[name][row].map(c => lch2rgb(c));
-      } else {
-        return lch2rgb(color);
-      }
-    });
-  });
-}
-
-
-
-
-//
-//
-// now show the colors
-//
-//
-
-
-palettes.base = [lch2rgb(palettes.baseColor)];
-// show the base color
-drawColors('base', 'rgb');
-logColors('base', 'rgb');
-
-// draw palettes to page
-palettes.list.forEach(p => {
-  if (Array.isArray(palettes[p][0])) {
-    // loop over rows, then print the palettes
-    palettes[p].forEach((swatch, i) => { // for each row (palette)
-      const name = `picker ${p}`; // choose a "picker" name
-      palettes[name] = swatch;    // create a tmp palette for drawColors
-      drawColors(name, 'rgb', i); // draw it
-      delete palettes[name];      // get rid of it
-    });
-  } else {
-    // print the palettes
-    drawColors(p, 'rgb'); // draw to page
-    //logColors(p, 'rgb');  // log in dev tools, will print CSS values
-  }
-});
-
-
-
-
-
-//
-//
-// on screen colors UI stuff - ignore for now
-//
-//
-
-const canvas = document.querySelector('canvas');
-const ctx = canvas.getContext('2d');
-
-// helper funcs
-function square(x, y, s, color) {
-  ctx.beginPath();
-  ctx.fillStyle = color;
-  ctx.strokeStyle ='black';
-  ctx.lineWidth = 1;
-  ctx.rect(x, y, s, s);
-  ctx.fill();
-  ctx.stroke();
-  ctx.closePath();
-}
-
-function lineOfBoxes(colors) {
-  colors.forEach((color, i) => square(10 + (i*34), 10, 24, color));
-}
-
-function colorWheelSegment(fill, stroke) {
-  // @TODO
-}
-
-function colorWheel(base, steps) {
-  // info: take base color, get other color using lch, only change hue
-  //
-  // @TODO - generate all colours from base color, for given number of steps
-  // @TODO - for each color, draw segment of doughnut
-  // @TODO -
-  // @TODO -
-  // @TODO -
-}
-
-// canvas setup
-canvas.height = 400;
-canvas.width = 600;
-canvas.style.height = `${canvas.height}px`;
-canvas.style.width = `${canvas.width}px`;
-ctx.translate(-0.5, -0.5);
-
-// lets draw
-
-let x, y;
-lineOfBoxes([ 'red', 'green', 'blue' ]);
+// finally, run the render function
+render(palettes);
 
 </script>
 </body>
